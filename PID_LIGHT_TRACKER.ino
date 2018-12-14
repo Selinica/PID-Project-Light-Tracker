@@ -1,57 +1,105 @@
-/*
-  PID controller using analog inputs for actual and desired positions.
+const int ldrpin = A0;
+const int ldrpin1 = A1;
+const int LED = 13;
 
- The circuit: 
- * RX is digital pin 2 (connect to TX of other device)
- * TX is digital pin 3 (connect to RX of other device)
+//MOTOR
+const int ENA = 6   ;
+const int In1 = 8;
+const int In2 = 9;
+int SPEED = 150; // scale is 0 to 255
+  
+void setup() {
+  //LDRS AND LED
+  Serial.begin(9600);
+   pinMode(ldrpin, INPUT);
+   pinMode(ldrpin1, INPUT);
+   pinMode(LED, OUTPUT);
 
+   //MOTOR
+   pinMode(In1, OUTPUT);
+   pinMode(In2, OUTPUT);
+   pinMode(ENA, OUTPUT);
+}
+
+  /* put your main code here, to run repeatedly:
+    Serial.print("HELLO");
+    Serial.print('\n');
+    int stat= analogRead(ldrpin);
+    delay(100);
+    int stat1 = analogRead(ldrpin1);
+    delay(100);
+
+    analogWrite(ENA, 0);
+    delay (250);
+    
+    float ldrstat = stat/100;
+    float ldrstat1= stat1/100;
+    Serial.print("ldrstat: ");
+    Serial.print(ldrstat, DEC);
+    Serial.print('\n');
+    Serial.print("ldrstat1: ");
+    Serial.print(ldrstat1, DEC);
+    Serial.print('\n');
+
+    digitalWrite(LED, LOW);
+ 
+      if (ldrstat1 > (ldrstat + 20)) {
+        digitalWrite(In1, LOW);
+        digitalWrite(In2, HIGH); 
+        digitalWrite(LED, HIGH);
+      }
+      else if (ldrstat > (ldrstat1 + 20)){
+        //Move Right
+        digitalWrite(In1, HIGH);
+        digitalWrite(In2, LOW);  
+      }
+      else {
+        //dont move
+        digitalWrite(In1, LOW);
+        digitalWrite(In2, LOW); 
+      }
  */
-#include <SoftwareSerial.h>
+ 
+//PID IMPLEMENTATION
+
 
 // define some constants
-int ActPos = A0;    // select the input pin for feedback signal
-int DesPos = A1;    // select the input pin for control signal
+ 
 
 byte PWMOutput;
 long Error[10];
 long Accumulator;
 long PID;
-int PTerm;
-int ITerm;
-int DTerm;
+int Kp;
+int Ki;
+int Kd;
 byte Divider;
-
-/* 
- Commented section is for MC33926 serial controlled H bridge
- Adjust for the selected H bridge.T
-*/
-//SoftwareSerial mySerial(2, 3); // Receive data on 2, send data on 3
-//byte SerialTXBuffer[5];
-//byte SerialRXBuffer[5];
-
-void setup()  
-{
-
- // Open serial communications and wait for port to open:
-  Serial.begin(9600);
-  mySerial.begin(9600);
-}
 
 /* GetError():
 Read the analog values, shift the Error array down 
 one spot, and load the new error value into the
 top of array.
 */
+
+int actpos =0;   
+int despos = 0;
+
 void GetError(void)
 {
-  byte i = 0;
-  // read analogs. adjust these with a counter to record the data for the graphs
-  word ActualPosition = analogRead(ActPos);  
+  int i = 0;
+  int stat1 = analogRead(ldrpin1);
+  int stat = analogRead(ldrpin);
+  // read analogs, values will be used to graph data
+  int actpos = stat1 - stat; 
 // comment out to speed up PID loop
 //  Serial.print("ActPos= ");
 //  Serial.println(ActualPosition,DEC);
-
-  word DesiredPosition = analogRead(DesPos);
+/*
+  Serial.print("test");
+     Serial.print(actpos);
+     Serial.print('\n');
+     delay(250);
+*/
 // comment out to speed up PID loop
 //  Serial.print("DesPos= ");
 //  Serial.println(DesiredPosition,DEC);
@@ -60,89 +108,65 @@ void GetError(void)
   for(i=9;i>0;i--)
     Error[i] = Error[i-1];
   // load new error into top array spot  
-  Error[0] = (long)DesiredPosition-(long)ActualPosition;
+  Error[0] = actpos - despos;
 // comment out to speed up PID loop
-//  Serial.print("Error= ");
-//  Serial.println(Error[0],DEC);
+   
 
 }
 
 /* CalculatePID():
-Error[0] is used for latest error, Error[9] with the DTERM
+Error[0] is used for latest error, Error[9] with the Kd
 */
 void CalculatePID(void)
 {
 // Set constants here
-  PTerm = 2000;
-  ITerm = 25;
-  DTerm = 0;
+  Kp = 2000;
+  Ki = 25;
+  Kd = 0;
   Divider = 10;
-
+  
 // Calculate the PID  
-  PID = Error[0]*PTerm;     // start with proportional gain
-  Accumulator += Error[0];  // accumulator is sum of errors
-  PID += ITerm*Accumulator; // add integral gain and error accumulation
-  PID += DTerm*(Error[0]-Error[9]); // differential gain comes next
+  PID = Error[0]*Kp;     // start with proportional gain
+  //Accumulator += Error[0];  // accumulator is sum of errors
+  //PID += Ki*Accumulator; // add integral gain and error accumulation
+  //PID += Kd*(Error[0]-Error[9]); // differential gain comes next
   PID = PID>>Divider; // scale PID down with divider
 
-// comment out to speed up PID loop  
+  
+  
 //Serial.print("PID= ");
 //  Serial.println(PID,DEC);
 
-// limit the PID to the resolution we have for the PWM variable
+// stay within the PWM range (1-254)
 
   if(PID>=127)
     PID = 127;
   if(PID<=-126)
-    PID = -126;
-
-//PWM output should be between 1 and 254 so we add to the PID    
-  PWMOutput = PID + 127;
-
-// comment out to speed up PID loop
+    PID = -126;   
+  PWMOutput = PID + 126; //was 127
+  
 //  Serial.print("PWMOutput= ");
 //  Serial.println(PWMOutput,DEC);
 
 }
 
-/* WriteRegister():
-Writes a single byte to the PIC16F1829, 
-"Value" to the register pointed at by "Index".  
-Returns the response 
-*/
-byte WriteRegister(byte Index, byte Value)
-{
-byte i = 0;
-byte checksum = 0;
-byte ack = 0;
-
-SerialTXBuffer[0] = 210;
-SerialTXBuffer[1] = 1;
-SerialTXBuffer[2] = 3;
-SerialTXBuffer[3] = Index;
-SerialTXBuffer[4] = Value;
-
-for (i=0;i<6;i++)
-  {
-  if (i!=5)
-    {
-    mySerial.write(SerialTXBuffer[i]);
-    checksum += SerialTXBuffer[i];    
-    }
-  else
-    mySerial.write(checksum);     
-  }
-  delay(5);
-
-  if (mySerial.available())
-    ack = mySerial.read();
-
-  return ack;
-} 
-
 void loop() // run over and over
 {
+     
      GetError();       // Get position error
      CalculatePID();   // Calculate the PID output from the error
-     WriteRegister(9,PWMOutput);  // Set motor speed
+     analogWrite(ENA,PWMOutput);  // Set motor speed
+     
+     if (actpos > 0) {
+      //move right
+        digitalWrite(In1, LOW);
+        digitalWrite(In2, HIGH);
+        Serial.print(digitalRead(9));
+        Serial.print(digitalRead(0)); 
+        Serial.print('\n');
+     } 
+     else {
+      digitalWrite(In1, HIGH);
+      digitalWrite(In2, LOW);
+     }
 }
