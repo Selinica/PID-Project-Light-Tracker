@@ -1,12 +1,10 @@
 const int ldrpin = A0;
 const int ldrpin1 = A1;
-const int LED = 13;
 
 //MOTOR
-const int ENA = 6   ;
+const int ENA = 6;
 const int In1 = 8;
 const int In2 = 9;
-int SPEED = 150; // scale is 0 to 255
   
 void setup() {
   //LDRS AND LED
@@ -21,50 +19,10 @@ void setup() {
    pinMode(ENA, OUTPUT);
 }
 
-  /* put your main code here, to run repeatedly:
-    Serial.print("HELLO");
-    Serial.print('\n');
-    int stat= analogRead(ldrpin);
-    delay(100);
-    int stat1 = analogRead(ldrpin1);
-    delay(100);
-
-    analogWrite(ENA, 0);
-    delay (250);
-    
-    float ldrstat = stat/100;
-    float ldrstat1= stat1/100;
-    Serial.print("ldrstat: ");
-    Serial.print(ldrstat, DEC);
-    Serial.print('\n');
-    Serial.print("ldrstat1: ");
-    Serial.print(ldrstat1, DEC);
-    Serial.print('\n');
-
-    digitalWrite(LED, LOW);
- 
-      if (ldrstat1 > (ldrstat + 20)) {
-        digitalWrite(In1, LOW);
-        digitalWrite(In2, HIGH); 
-        digitalWrite(LED, HIGH);
-      }
-      else if (ldrstat > (ldrstat1 + 20)){
-        //Move Right
-        digitalWrite(In1, HIGH);
-        digitalWrite(In2, LOW);  
-      }
-      else {
-        //dont move
-        digitalWrite(In1, LOW);
-        digitalWrite(In2, LOW); 
-      }
- */
- 
 //PID IMPLEMENTATION
 
 
 // define some constants
- 
 
 byte PWMOutput;
 long Error[10];
@@ -87,10 +45,8 @@ int despos = 0;
 void GetError(void)
 {
   int i = 0;
-  int stat1 = analogRead(ldrpin1);
-  int stat = analogRead(ldrpin);
-  // read analogs, values will be used to graph data
-  int actpos = stat1 - stat; 
+// read analogs, values will be used to graph data
+  actpos = analogRead(ldrpin1) - analogRead(ldrpin); 
 // comment out to speed up PID loop
 //  Serial.print("ActPos= ");
 //  Serial.println(ActualPosition,DEC);
@@ -101,8 +57,8 @@ void GetError(void)
      delay(250);
 */
 // comment out to speed up PID loop
-//  Serial.print("DesPos= ");
-//  Serial.println(DesiredPosition,DEC);
+//  Serial.print("despos= ");
+//  Serial.println(despos,DEC);
 
   // shift error values
   for(i=9;i>0;i--)
@@ -110,6 +66,8 @@ void GetError(void)
   // load new error into top array spot  
   Error[0] = actpos - despos;
 // comment out to speed up PID loop
+//  Serial.print("Error= ");
+//  Serial.println(Error[0],DEC);
    
 
 }
@@ -127,15 +85,15 @@ void CalculatePID(void)
   
 // Calculate the PID  
   PID = Error[0]*Kp;     // start with proportional gain
-  //Accumulator += Error[0];  // accumulator is sum of errors
-  //PID += Ki*Accumulator; // add integral gain and error accumulation
-  //PID += Kd*(Error[0]-Error[9]); // differential gain comes next
+  Accumulator += Error[0];  // accumulator is sum of errors
+  PID += Ki*Accumulator; // add integral gain and error accumulation
+  PID += Kd*(Error[0]-Error[9]); // differential gain comes next
   PID = PID>>Divider; // scale PID down with divider
 
   
   
 //Serial.print("PID= ");
-//  Serial.println(PID,DEC);
+//Serial.println(PID,DEC);
 
 // stay within the PWM range (1-254)
 
@@ -144,7 +102,7 @@ void CalculatePID(void)
   if(PID<=-126)
     PID = -126;   
   PWMOutput = PID + 126; //was 127
-  
+//comment this out to speed up program
 //  Serial.print("PWMOutput= ");
 //  Serial.println(PWMOutput,DEC);
 
