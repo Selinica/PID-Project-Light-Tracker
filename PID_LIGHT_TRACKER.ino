@@ -91,7 +91,7 @@ void CalculatePID(void)
   PID = PID>>Divider; // scale PID down with divider
 
   
-  
+//comment out to speed up the PID
 //Serial.print("PID= ");
 //Serial.println(PID,DEC);
 
